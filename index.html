@@ -82,6 +82,16 @@
   </section>
 
   <section class="card">
+    <h2>Lanjutkan Nomor yang Sudah Berjalan</h2>
+    <div style="font-size:13px;color:var(--mut)">Jika tahun ini sudah ada surat yang bernomor sebelum memakai web ini, isi nomor urut <b>terakhir</b> yang sudah terpakai. Nomor berikutnya akan melanjutkan dari situ. Otomatis mulai 001 lagi bulan Januari.</div>
+    <div class="row">
+      <div><label>Nomor urut terakhir yang sudah terpakai</label><input type="number" id="offset" min="0" placeholder="Contoh: 231"></div>
+      <div style="display:flex;align-items:flex-end"><button id="btnOffset">Simpan</button></div>
+    </div>
+    <div class="msg" id="offsetMsg" style="color:var(--grn)"></div>
+  </section>
+
+  <section class="card">
     <div class="top">
       <h2 style="margin:0">Daftar Register</h2>
       <div style="display:flex;gap:8px">
@@ -124,7 +134,7 @@ const KODE = [
 ];
 
 const $ = id => document.getElementById(id);
-let PIN = "", DATA = [];
+let PIN = "", DATA = [], TAHUN = new Date().getFullYear(), OFFSET = 0;
 
 function init(){
   $("kode").innerHTML = KODE.map(k => `<option value="${k[0]}">${k[1]}</option>`).join("");
@@ -150,7 +160,14 @@ async function muat(){
   const res = await fetch(API + "?pin=" + encodeURIComponent(PIN));
   const j = await res.json();
   if (!j.ok){ $("loginMsg").textContent = j.error || "Gagal"; return false; }
-  DATA = j.data; render(); return true;
+  DATA = j.data; TAHUN = j.tahun || TAHUN; OFFSET = j.offset || 0; render(); info(); return true;
+}
+
+function info(){
+  let mx = OFFSET;
+  DATA.forEach(d => { if (Number(d.tahun) === TAHUN && Number(d.urut) > mx) mx = Number(d.urut); });
+  $("offsetMsg").textContent = "Tahun " + TAHUN + ": nomor terakhir " + String(mx).padStart(3,"0") + ", nomor berikutnya " + String(mx+1).padStart(3,"0") + ".";
+  if (!$("offset").value && OFFSET) $("offset").value = OFFSET;
 }
 
 function esc(s){ return String(s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
@@ -178,6 +195,20 @@ $("btnLogin").onclick = login;
 $("pin").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
 $("cari").oninput = render;
 $("btnMuat").onclick = () => muat();
+
+$("btnOffset").onclick = async () => {
+  const n = $("offset").value.trim();
+  if (n === "" || Number(n) < 0){ $("offsetMsg").textContent = "Isi nomor terakhir."; return; }
+  const nx = String(Number(n)+1).padStart(3,"0");
+  if (!confirm("Nomor terakhir tahun " + TAHUN + " diset " + n + ". Surat berikutnya bernomor " + nx + ". Lanjutkan?")) return;
+  $("btnOffset").disabled = true;
+  try {
+    const j = await post({ action:"setOffset", tahun:TAHUN, nomorTerakhir:Number(n) });
+    if (!j.ok) alert(j.error || "Gagal");
+    await muat();
+  } catch(e){ alert("Gagal terhubung: " + e); }
+  $("btnOffset").disabled = false;
+};
 
 $("btnBuat").onclick = async () => {
   const perihal = $("perihal").value.trim();
