@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Register Surat Keluar - SMPS Shabilla</title>
+<style>
+  :root{--bg:#f4f6fb;--card:#fff;--tx:#1f2937;--mut:#6b7280;--pri:#1d4ed8;--bd:#e5e7eb;--red:#b91c1c;--grn:#047857}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx)}
+  header{background:var(--pri);color:#fff;padding:14px 20px}
+  header h1{margin:0;font-size:18px}
+  header p{margin:2px 0 0;font-size:12px;opacity:.85}
+  main{max-width:980px;margin:18px auto;padding:0 14px;display:grid;gap:16px}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:18px}
+  h2{margin:0 0 12px;font-size:16px}
+  label{display:block;font-size:12px;color:var(--mut);margin:10px 0 4px}
+  input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--bd);border-radius:8px;font:inherit;background:#fff}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:640px){.row{grid-template-columns:1fr}}
+  button{padding:10px 16px;border:0;border-radius:8px;background:var(--pri);color:#fff;font:inherit;cursor:pointer}
+  button.sec{background:#e5e7eb;color:var(--tx)}
+  button.dng{background:var(--red)}
+  button:disabled{opacity:.6;cursor:wait}
+  .hasil{display:none;margin-top:14px;padding:14px;border:2px dashed var(--grn);border-radius:10px;background:#ecfdf5}
+  .hasil .no{font-size:20px;font-weight:700;color:var(--grn);word-break:break-all}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .scroll{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{padding:8px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:top}
+  th{background:#f9fafb;white-space:nowrap}
+  tr.batal td{color:#9ca3af;text-decoration:line-through}
+  .msg{font-size:13px;margin-top:8px;color:var(--red)}
+  #login{max-width:340px;margin:60px auto}
+  #app{display:none}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .top input{max-width:260px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Register Surat Keluar</h1>
+  <p>SMPS Shabilla Batam &middot; Penomoran otomatis sesuai Pedoman Klasifikasi dan Penomoran Surat</p>
+</header>
+
+<div id="login" class="card">
+  <h2>Masuk</h2>
+  <label>PIN</label>
+  <input type="password" id="pin" placeholder="Masukkan PIN" autofocus>
+  <div class="tools"><button id="btnLogin">Masuk</button></div>
+  <div class="msg" id="loginMsg"></div>
+</div>
+
+<main id="app">
+  <section class="card">
+    <h2>Buat Nomor Surat Baru</h2>
+    <div class="row">
+      <div>
+        <label>Kode klasifikasi *</label>
+        <select id="kode"></select>
+      </div>
+      <div>
+        <label>Tanggal surat *</label>
+        <input type="date" id="tanggal">
+      </div>
+    </div>
+    <label>Perihal *</label>
+    <input id="perihal" placeholder="Contoh: Undangan rapat orang tua murid">
+    <div class="row">
+      <div><label>Tujuan surat</label><input id="tujuan" placeholder="Contoh: Orang tua/wali murid"></div>
+      <div><label>Nama penandatangan</label><input id="ttd" placeholder="Contoh: Kepala Sekolah"></div>
+    </div>
+    <label>Keterangan</label>
+    <input id="ket" placeholder="Opsional">
+    <div class="tools"><button id="btnBuat">Ambil Nomor Surat</button></div>
+    <div class="msg" id="buatMsg"></div>
+    <div class="hasil" id="hasil">
+      <div style="font-size:12px;color:var(--mut)">Nomor surat (sudah tercatat di register):</div>
+      <div class="no" id="nomorBaru"></div>
+      <div class="tools"><button class="sec" id="btnSalin">Salin nomor</button></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="top">
+      <h2 style="margin:0">Daftar Register</h2>
+      <div style="display:flex;gap:8px">
+        <input id="cari" placeholder="Cari nomor / perihal / tujuan...">
+        <button class="sec" id="btnMuat">Muat ulang</button>
+      </div>
+    </div>
+    <div class="scroll" style="margin-top:12px">
+      <table>
+        <thead><tr><th>Nomor Surat</th><th>Tanggal</th><th>Perihal</th><th>Tujuan</th><th>Penandatangan</th><th>Ket.</th><th></th></tr></thead>
+        <tbody id="tbody"><tr><td colspan="7">Memuat...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycby7tG-Kz6-FL5dUsxd_3wslALb7aqeU_elQI-gbKB7yj0BqgBWuFT2HzpdeU5yFaoR8/exec";
+
+const KODE = [
+  ["421.3","421.3 - Surat umum sekolah menengah"],
+  ["421.6","421.6 - Kegiatan sekolah"],
+  ["421.7","421.7 - Kegiatan pelajar"],
+  ["422","422 - Administrasi sekolah"],
+  ["422.1","422.1 - Pendaftaran dan persyaratan masuk sekolah"],
+  ["422.2","422.2 - Tahun pelajaran"],
+  ["422.3","422.3 - Hari libur"],
+  ["422.4","422.4 - Uang sekolah"],
+  ["422.5","422.5 - Beasiswa dan penghargaan siswa"],
+  ["422.6","422.6 - Ijazah dan sertifikat"],
+  ["423","423 - Metode belajar"],
+  ["423.5","423.5 - Kurikulum"],
+  ["423.6","423.6 - Karya tulis dan karya ilmiah"],
+  ["423.7","423.7 - Ujian"],
+  ["424","424 - Tenaga pengajar/guru"],
+  ["424.1","424.1 - Pertukaran guru"],
+  ["424.2","424.2 - Sertifikasi guru"],
+  ["425","425 - Sarana pendidikan"],
+  ["425.1","425.1 - Bangunan pendidikan"]
+];
+
+const $ = id => document.getElementById(id);
+let PIN = "", DATA = [];
+
+function init(){
+  $("kode").innerHTML = KODE.map(k => `<option value="${k[0]}">${k[1]}</option>`).join("");
+  const t = new Date(); t.setMinutes(t.getMinutes() - t.getTimezoneOffset());
+  $("tanggal").value = t.toISOString().slice(0,10);
+  try { const p = sessionStorage.getItem("pin"); if (p) { $("pin").value = p; login(); } } catch(e){}
+}
+
+async function login(){
+  PIN = $("pin").value.trim();
+  if (!PIN) return;
+  $("loginMsg").textContent = "Memeriksa...";
+  try {
+    const r = await muat();
+    if (!r) return;
+    try { sessionStorage.setItem("pin", PIN); } catch(e){}
+    $("login").style.display = "none";
+    $("app").style.display = "grid";
+  } catch(e){ $("loginMsg").textContent = "Gagal terhubung: " + e; }
+}
+
+async function muat(){
+  const res = await fetch(API + "?pin=" + encodeURIComponent(PIN));
+  const j = await res.json();
+  if (!j.ok){ $("loginMsg").textContent = j.error || "Gagal"; return false; }
+  DATA = j.data; render(); return true;
+}
+
+function esc(s){ return String(s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function render(){
+  const q = $("cari").value.toLowerCase();
+  const rows = DATA.filter(d => !q || (d.nomor+d.perihal+d.tujuan+d.penandatangan).toLowerCase().includes(q));
+  if (!rows.length){ $("tbody").innerHTML = '<tr><td colspan="7">Belum ada data.</td></tr>'; return; }
+  $("tbody").innerHTML = rows.map(d => {
+    const batal = String(d.keterangan).toUpperCase().startsWith("BATAL");
+    return `<tr class="${batal?"batal":""}">
+      <td><b>${esc(d.nomor)}</b></td><td>${esc(d.tanggal)}</td><td>${esc(d.perihal)}</td>
+      <td>${esc(d.tujuan)}</td><td>${esc(d.penandatangan)}</td><td>${esc(d.keterangan)}</td>
+      <td>${batal ? "" : `<button class="dng" data-no="${esc(d.nomor)}">Batal</button>`}</td></tr>`;
+  }).join("");
+}
+
+async function post(body){
+  body.pin = PIN;
+  const res = await fetch(API, { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify(body) });
+  return res.json();
+}
+
+$("btnLogin").onclick = login;
+$("pin").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
+$("cari").oninput = render;
+$("btnMuat").onclick = () => muat();
+
+$("btnBuat").onclick = async () => {
+  const perihal = $("perihal").value.trim();
+  if (!perihal){ $("buatMsg").textContent = "Perihal wajib diisi."; return; }
+  $("buatMsg").textContent = "";
+  const btn = $("btnBuat"); btn.disabled = true; btn.textContent = "Memproses...";
+  try {
+    const j = await post({
+      action:"create", kode:$("kode").value, tanggal:$("tanggal").value, perihal,
+      tujuan:$("tujuan").value.trim(), penandatangan:$("ttd").value.trim(), keterangan:$("ket").value.trim()
+    });
+    if (!j.ok){ $("buatMsg").textContent = j.error || "Gagal"; }
+    else {
+      $("nomorBaru").textContent = j.nomor;
+      $("hasil").style.display = "block";
+      ["perihal","tujuan","ttd","ket"].forEach(i => $(i).value = "");
+      await muat();
+    }
+  } catch(e){ $("buatMsg").textContent = "Gagal terhubung: " + e; }
+  btn.disabled = false; btn.textContent = "Ambil Nomor Surat";
+};
+
+$("btnSalin").onclick = async () => {
+  try { await navigator.clipboard.writeText($("nomorBaru").textContent); $("btnSalin").textContent = "Tersalin"; }
+  catch(e){ $("btnSalin").textContent = "Salin manual"; }
+  setTimeout(() => $("btnSalin").textContent = "Salin nomor", 1500);
+};
+
+$("tbody").addEventListener("click", async e => {
+  const no = e.target.dataset && e.target.dataset.no;
+  if (!no) return;
+  const alasan = prompt("Alasan pembatalan untuk " + no + ":");
+  if (alasan === null) return;
+  e.target.disabled = true;
+  try {
+    const j = await post({ action:"cancel", nomor:no, alasan });
+    if (!j.ok) alert(j.error || "Gagal");
+    await muat();
+  } catch(err){ alert("Gagal terhubung: " + err); }
+});
+
+init();
+</script>
+</body>
+</html>
