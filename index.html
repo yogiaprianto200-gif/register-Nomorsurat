@@ -64,6 +64,11 @@
         <input type="date" id="tanggal">
       </div>
     </div>
+    <label>Kode kegiatan surat (opsional)</label>
+    <div style="display:flex;gap:8px">
+      <select id="kegiatan"></select>
+      <button class="sec" id="btnKeg" type="button" style="white-space:nowrap">+ Kode baru</button>
+    </div>
     <label>Perihal *</label>
     <input id="perihal" placeholder="Contoh: Undangan rapat orang tua murid">
     <div class="row">
@@ -134,7 +139,7 @@ const KODE = [
 ];
 
 const $ = id => document.getElementById(id);
-let PIN = "", DATA = [], TAHUN = new Date().getFullYear(), OFFSET = 0;
+let PIN = "", KEG = [], DATA = [], TAHUN = new Date().getFullYear(), OFFSET = 0;
 
 function init(){
   $("kode").innerHTML = KODE.map(k => `<option value="${k[0]}">${k[1]}</option>`).join("");
@@ -160,7 +165,14 @@ async function muat(){
   const res = await fetch(API + "?pin=" + encodeURIComponent(PIN));
   const j = await res.json();
   if (!j.ok){ $("loginMsg").textContent = j.error || "Gagal"; return false; }
-  DATA = j.data; TAHUN = j.tahun || TAHUN; OFFSET = j.offset || 0; render(); info(); return true;
+  DATA = j.data; TAHUN = j.tahun || TAHUN; OFFSET = j.offset || 0; KEG = j.kegiatan || []; isiKegiatan(); render(); info(); return true;
+}
+
+function isiKegiatan(){
+  const cur = $("kegiatan").value;
+  $("kegiatan").innerHTML = '<option value="">(tanpa kode kegiatan)</option>' +
+    KEG.map(k => `<option value="${esc(k.kode)}">${esc(k.kode)}${k.nama ? " - " + esc(k.nama) : ""}</option>`).join("");
+  $("kegiatan").value = cur;
 }
 
 function info(){
@@ -196,6 +208,18 @@ $("pin").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
 $("cari").oninput = render;
 $("btnMuat").onclick = () => muat();
 
+$("btnKeg").onclick = async () => {
+  const kode = prompt("Kode kegiatan baru (contoh: S-PP):");
+  if (!kode) return;
+  const nama = prompt("Nama kegiatan/jenis surat (contoh: Surat Permohonan):") || "";
+  try {
+    const j = await post({ action:"addKegiatan", kode:kode.trim(), nama:nama.trim() });
+    if (!j.ok){ alert(j.error || "Gagal"); return; }
+    await muat();
+    $("kegiatan").value = kode.trim().toUpperCase();
+  } catch(e){ alert("Gagal terhubung: " + e); }
+};
+
 $("btnOffset").onclick = async () => {
   const n = $("offset").value.trim();
   if (n === "" || Number(n) < 0){ $("offsetMsg").textContent = "Isi nomor terakhir."; return; }
@@ -217,7 +241,7 @@ $("btnBuat").onclick = async () => {
   const btn = $("btnBuat"); btn.disabled = true; btn.textContent = "Memproses...";
   try {
     const j = await post({
-      action:"create", kode:$("kode").value, tanggal:$("tanggal").value, perihal,
+      action:"create", kode:$("kode").value, kegiatan:$("kegiatan").value, tanggal:$("tanggal").value, perihal,
       tujuan:$("tujuan").value.trim(), penandatangan:$("ttd").value.trim(), keterangan:$("ket").value.trim()
     });
     if (!j.ok){ $("buatMsg").textContent = j.error || "Gagal"; }
